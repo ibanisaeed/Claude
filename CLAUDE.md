@@ -2,64 +2,91 @@
 
 Guidance for AI assistants (and humans) working in this repository.
 
-## Current state of the repository
+## What this is
 
-This repository is currently a **bare scaffold**. As of this writing it contains:
-
-- `README.md` — a single-line placeholder (`# Claude`)
-- `CLAUDE.md` — this file
-
-There is **no application code, build tooling, dependency manifest, test suite, or
-CI configuration yet**. Do not assume any framework, language, or directory layout
-is in place — none has been chosen. When you add the first real code, update this
-file in the same change so it always reflects reality.
-
-> Keep this document honest. It should describe what the repo *actually contains*,
-> not aspirational structure. If a section below no longer matches the code, fix it.
+A single-file **workout tracking dashboard** — "Ibrahim Workout Tracker". The user
+pastes their lifts week by week and the app analyses progress: per-exercise tables,
+progression charts, muscle-group volume, a body heatmap, and auto-generated coaching
+notes. No backend; everything runs in the browser and persists to `localStorage`.
 
 ## Repository structure
 
 ```
 .
+├── index.html    # The entire app: HTML + CSS + JS in one file (open in a browser)
 ├── README.md     # Project placeholder
 └── CLAUDE.md     # This file
 ```
 
-Update the tree above whenever the layout changes.
+There is **no build step, package manager, or test suite**. To run it, open
+`index.html` in any modern browser. Two external resources load from CDNs:
+Google Fonts (Barlow Condensed + Inter) and Chart.js 4.x. The app degrades
+gracefully offline — charts show a "needs internet" note, everything else works.
 
-## Development workflow
+## How the app works (mental model)
 
-### Branching
+- **State** is an array of weekly sessions in `localStorage` under key `iwt_sessions_v1`:
+  `[{ week, date, exercises: [{ name, sets: [{ w, r }] }] }]`. Raw sets only — all
+  analytics are derived on the fly, never stored.
+- **Input parsing** (`parseInput`): a text line starting with a letter is an exercise
+  name; a line starting with a digit is a set parsed as `weight reps` (also accepts
+  `x`/`*`/`×` separators; a lone number = bodyweight reps). Multiple exercises per paste.
+- **Muscle mapping** (`classify` + `RULES`): keyword rules map an exercise name to a
+  primary group (`Chest/Shoulders/Arms/Back/Abs/Legs`), a specific label, and secondary
+  muscles. Order matters — **specific rules come first, first match wins**. All volume
+  math uses *primary* attribution; secondaries are informational tags only.
+- **Stats** (`exStats`): total sets/reps, volume = Σ(weight×reps), best set (highest
+  est. 1RM), and estimated 1RM via the **Epley formula** `w × (1 + reps/30)`.
+- **Render pipeline**: `render()` is the single entry point called after every state
+  change. It fans out to `renderWeekSelector / renderSummary / renderTable /
+  renderHeatmap / renderBreakdown / renderInsights / renderCharts`.
 
-- The default/integration branch is `main`.
-- Do all work on a feature branch; never commit directly to `main`.
-- Branch names in use follow a `claude/<short-description>-<suffix>` pattern
-  (e.g. `claude/claude-md-docs-anpgrk`). Match the existing convention.
+## Design system (follow this — don't reinvent)
 
-### Committing
+The visual identity is **thermal**: a cold-steel dark UI where trained muscles and
+stats glow with "ignition" heat. Keep new work consistent with it.
 
-- Write clear, descriptive commit messages in the imperative mood
-  (e.g. "Add CLAUDE.md", not "added stuff").
-- Keep commits focused; group related changes together.
-
-### Pushing
-
-- Push with `git push -u origin <branch-name>`.
-- Open a pull request only when explicitly requested.
+- **Palette** is defined as CSS custom properties in `:root`. Ground `#0E141B`,
+  text `#E7ECF3`, accent (ignition orange) `#FF6A2B`, secondary (steel cyan) `#4CC2FF`.
+  Each muscle group has a fixed categorical colour (`--c-chest` … `--c-legs`).
+- **Two colour languages, kept separate**: the body heatmap uses a single-hue thermal
+  ramp (`heatColor()`, steel→ember→ignition→amber) to mean *intensity*; charts and the
+  muscle breakdown use the categorical group colours to mean *category*. Don't mix them.
+- **Type**: Barlow Condensed for display/headings/big numbers; Inter for body and tables
+  (use `tabular-nums` for figures).
+- **Body diagram** is a geometric, segmented SVG (`FRONT_SVG` / `BACK_SVG`). Each muscle
+  shape carries `class="muscle" data-group="<Group>"`; JS recolours by `data-group`.
+  To add/adjust regions, edit those template strings and keep the `data-group` values
+  in sync with `GROUPS`.
 
 ## Conventions for AI assistants
 
-1. **Reflect reality.** This repo has almost nothing in it. Don't fabricate
-   structure, commands, or conventions that don't exist. If asked to document
-   something that isn't here, say so.
-2. **Bootstrap deliberately.** When introducing the first real code, also add the
-   matching tooling (dependency manifest, formatter/linter config, test runner)
-   and document the install / build / test / lint commands in this file.
-3. **Update this file with each meaningful change** so it stays a trustworthy map
-   of the codebase.
-4. **Verify before claiming.** Run the relevant build/test/lint commands (once they
-   exist) before reporting that a change works.
+1. **Keep it one file, no backend, no build.** All changes go in `index.html`. Don't
+   introduce a bundler, framework, or server unless the user explicitly asks.
+2. **Single render path.** After mutating `state`, call `save()` then `render()` —
+   don't hand-patch the DOM out of band.
+3. **Charts are recreated, not mutated.** Use `makeChart(id, cfg)`, which destroys the
+   prior instance; keep instances in the `CH` map.
+4. **Extending muscle coverage** = add a rule to `RULES` (specific first) and, if a new
+   group is ever introduced, update `GROUPS`, `GROUP_COLOR`, `SUGGEST`, and both SVGs.
+5. **Respect the palette and the heat/category split** described above.
+6. **Accessibility & motion**: keep visible focus styles and honour
+   `prefers-reduced-motion` (already wired for CSS transitions and Chart.js animation).
+7. **Verify before claiming done.** There's no browser in the dev environment here, so
+   at minimum run `node --check` on the inline script and sanity-check tag balance and
+   referenced element IDs. Ideally open `index.html` in a real browser to eyeball it.
+
+## Development workflow
+
+- Default/integration branch: `main`. Work on a feature branch; never commit to `main`.
+- Branch naming in use: `claude/<short-description>-<suffix>`.
+- Commit messages: imperative mood, descriptive. Open a PR only when explicitly asked.
 
 ## Build / test / lint commands
 
-_None yet — no tooling has been set up. Populate this section when it is._
+_None configured (intentionally — static single-file app)._ Quick local check:
+
+```bash
+# syntax-check the inline JS (extract it first, or paste into node --check)
+node --check <(extracted-inline-script)
+```

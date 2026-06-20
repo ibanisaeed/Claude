@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ibrahim Workout Tracker</title>
+<meta name="description" content="Log your lifts week by week and watch your muscles light up as you progress." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ground:#0E141B;
+    --panel:#141C26;
+    --panel-2:#1A2430;
+    --line:#26323F;
+    --text:#E7ECF3;
+    --muted:#8A97A6;
+    --faint:#5C6877;
+    --accent:#FF6A2B;
+    --accent-soft:#FF6A2B33;
+    --accent-2:#4CC2FF;
+    --good:#34D399;
+    --warn:#FFB02E;
+    --bad:#FF4D6D;
+    --muscle-base:#1E2937;
+    --body-base:#161F2A;
+    --radius:16px;
+    --radius-sm:11px;
+    --shadow:0 18px 40px -24px rgba(0,0,0,.8);
+    /* group colours (categorical) */
+    --c-chest:#FF6A2B;
+    --c-shoulders:#FFB02E;
+    --c-arms:#FF4D6D;
+    --c-back:#4CC2FF;
+    --c-abs:#C084FC;
+    --c-legs:#34D399;
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--text);
+    font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background:
+      radial-gradient(900px 420px at 78% -8%, rgba(255,106,43,.10), transparent 60%),
+      radial-gradient(700px 500px at -5% 8%, rgba(76,194,255,.06), transparent 55%);
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 18px 80px;}
+
+  h1,h2,h3,.display{font-family:"Barlow Condensed","Inter",sans-serif;font-weight:600;letter-spacing:.01em;margin:0;}
+  a{color:var(--accent-2);}
+
+  /* ---------- header ---------- */
+  header.top{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;gap:14px;
+    padding:16px 18px;margin:0 -18px 22px;
+    background:rgba(14,20,27,.78);
+    backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);
+  }
+  .logo{
+    width:42px;height:42px;border-radius:12px;flex:0 0 auto;
+    display:grid;place-items:center;
+    background:linear-gradient(150deg,#FF6A2B,#FF3B30);
+    box-shadow:0 0 22px -2px rgba(255,106,43,.55);
+  }
+  .logo svg{width:24px;height:24px;}
+  .brand h1{font-size:25px;line-height:1;letter-spacing:.02em;text-transform:uppercase;}
+  .brand .tag{font-size:12.5px;color:var(--muted);letter-spacing:.16em;text-transform:uppercase;margin-top:3px;}
+  .brand{margin-right:auto;}
+
+  /* ---------- generic panel ---------- */
+  .panel{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+  }
+  .section{margin-bottom:22px;}
+  .section-head{display:flex;align-items:baseline;gap:12px;margin:2px 2px 12px;}
+  .section-head h2{font-size:20px;text-transform:uppercase;letter-spacing:.05em;}
+  .section-head .eyebrow{font-size:11px;color:var(--accent);letter-spacing:.22em;text-transform:uppercase;font-weight:600;}
+  .section-head .sub{margin-left:auto;color:var(--muted);font-size:13px;}
+
+  .grid{display:grid;gap:18px;}
+  @media(min-width:900px){
+    .split{grid-template-columns:1.05fr .95fr;}
+    .charts{grid-template-columns:1fr 1fr;}
+  }
+
+  /* ---------- input ---------- */
+  .input-grid{display:grid;gap:16px;padding:18px;}
+  @media(min-width:760px){.input-grid{grid-template-columns:1fr 320px;}}
+  textarea#raw{
+    width:100%;min-height:200px;resize:vertical;
+    background:#0C1219;border:1px solid var(--line);border-radius:var(--radius-sm);
+    color:var(--text);font-family:"Inter",monospace;font-size:15px;line-height:1.7;
+    padding:14px 15px;letter-spacing:.01em;
+  }
+  textarea#raw:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent;}
+  textarea#raw::placeholder{color:var(--faint);}
+  .side label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 6px 2px;}
+  .field{margin-bottom:14px;}
+  .side input,.side select{
+    width:100%;background:#0C1219;border:1px solid var(--line);border-radius:10px;
+    color:var(--text);padding:11px 12px;font-size:15px;font-family:inherit;
+  }
+  .hint{font-size:12.5px;color:var(--faint);line-height:1.6;background:#0C1219;border:1px dashed var(--line);border-radius:10px;padding:10px 12px;}
+  .hint b{color:var(--muted);font-weight:600;}
+  .row-btns{display:flex;gap:10px;}
+  .btn{
+    appearance:none;border:1px solid var(--line);background:var(--panel-2);color:var(--text);
+    font-family:"Barlow Condensed",sans-serif;font-weight:600;font-size:17px;letter-spacing:.04em;text-transform:uppercase;
+    padding:12px 16px;border-radius:11px;cursor:pointer;transition:transform .08s ease,background .15s ease,border-color .15s ease;
+  }
+  .btn:hover{border-color:var(--faint);}
+  .btn:active{transform:translateY(1px);}
+  .btn.primary{
+    flex:1;border:none;color:#1A0E07;
+    background:linear-gradient(120deg,#FFB02E,#FF6A2B);
+    box-shadow:0 10px 26px -10px rgba(255,106,43,.7);
+  }
+  .btn.ghost{background:transparent;}
+  .btn.small{font-size:13px;padding:8px 11px;}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 18px;}
+  .toolbar select{width:auto;min-width:150px;}
+  .toolbar .spacer{margin-left:auto;}
+
+  /* ---------- stat cards ---------- */
+  .stats{grid-template-columns:repeat(2,1fr);}
+  @media(min-width:680px){.stats{grid-template-columns:repeat(5,1fr);}}
+  .stat{padding:16px;position:relative;overflow:hidden;}
+  .stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.13em;}
+  .stat .v{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:34px;line-height:1.05;margin-top:6px;}
+  .stat .v small{font-size:15px;color:var(--muted);font-weight:600;margin-left:3px;}
+  .stat .d{font-size:12.5px;margin-top:4px;font-weight:600;color:var(--muted);}
+  .up{color:var(--good);} .down{color:var(--bad);} .flat{color:var(--muted);}
+  .stat::after{content:"";position:absolute;left:0;bottom:0;height:3px;width:100%;background:linear-gradient(90deg,var(--accent),transparent);opacity:.5;}
+
+  /* ---------- table ---------- */
+  .table-scroll{overflow-x:auto;padding:4px;}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px;}
+  thead th{
+    text-align:right;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600;
+    padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  thead th:first-child,tbody td:first-child{text-align:left;}
+  tbody td{padding:13px 14px;text-align:right;border-bottom:1px solid #1B242F;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:#161F2A;}
+  .ex-name{font-weight:600;font-size:15px;}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-start;margin-top:3px;}
+  .tag{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#0C1219;color:var(--muted);border:1px solid var(--line);letter-spacing:.02em;}
+  .pill{display:inline-flex;align-items:center;gap:4px;font-weight:600;}
+  .muscle-dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  /* ---------- body heatmap ---------- */
+  .body-wrap{padding:18px;}
+  .figs{display:flex;gap:6px;justify-content:center;align-items:flex-end;flex-wrap:wrap;}
+  .fig{flex:1 1 150px;max-width:230px;text-align:center;}
+  .fig svg{width:100%;height:auto;display:block;}
+  .fig .cap{font-family:"Barlow Condensed",sans-serif;font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+  .muscle{fill:var(--muscle-base);stroke:#0C1219;stroke-width:1.2;transition:fill .5s ease,filter .5s ease;}
+  .bodybase{fill:var(--body-base);stroke:#0C1219;stroke-width:1.2;}
+  .heat-legend{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;}
+  .heat-bar{flex:1;height:8px;border-radius:6px;background:linear-gradient(90deg,#1E2937,#5B2410,#B4441A,#FF6A2B,#FFD24A);}
+  .mlist{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:16px;}
+  .mlist .mrow{display:flex;align-items:center;gap:8px;font-size:13px;}
+  .mlist .mrow .nm{color:var(--muted);}
+  .mlist .mrow .vl{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:600;}
+
+  /* ---------- breakdown bars ---------- */
+  .breakdown{padding:18px;}
+  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:13px;}
+  .bar-row .lbl{width:96px;flex:0 0 auto;font-size:13px;color:var(--muted);}
+  .bar-track{flex:1;height:14px;border-radius:8px;background:#0C1219;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:8px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+  .bar-row .amt{width:92px;flex:0 0 auto;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;font-weight:600;}
+
+  /* ---------- charts ---------- */
+  .chart-card{padding:16px;}
+  .chart-card h3{font-size:16px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px;}
+  .chart-card .csub{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  .chart-box{position:relative;height:248px;}
+  .chart-box.pie{height:268px;}
+
+  /* ---------- insights ---------- */
+  .insights{grid-template-columns:1fr;}
+  @media(min-width:680px){.insights{grid-template-columns:1fr 1fr;}}
+  .note{padding:15px 16px;display:flex;gap:13px;align-items:flex-start;}
+  .note .ic{width:34px;height:34px;border-radius:10px;flex:0 0 auto;display:grid;place-items:center;font-size:17px;}
+  .note .ttl{font-family:"Barlow Condensed",sans-serif;font-size:16px;letter-spacing:.04em;text-transform:uppercase;}
+  .note .tx{font-size:13.5px;color:var(--muted);margin-top:2px;}
+  .note.good .ic{background:rgba(52,211,153,.14);color:var(--good);}
+  .note.warn .ic{background:rgba(255,176,46,.14);color:var(--warn);}
+  .note.bad .ic{background:rgba(255,77,109,.14);color:var(--bad);}
+  .note.info .ic{background:rgba(76,194,255,.14);color:var(--accent-2);}
+  .note.good .ttl{color:var(--good);} .note.warn .ttl{color:var(--warn);}
+  .note.bad .ttl{color:var(--bad);} .note.info .ttl{color:var(--accent-2);}
+
+  /* ---------- empty state ---------- */
+  .empty{padding:46px 24px;text-align:center;}
+  .empty h2{font-size:26px;text-transform:uppercase;letter-spacing:.04em;}
+  .empty p{color:var(--muted);max-width:440px;margin:10px auto 20px;}
+  .hidden{display:none !important;}
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:#0C1219;border:1px solid var(--line);color:var(--text);
+    padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;
+    box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s ease;z-index:50;
+    display:flex;align-items:center;gap:9px;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #toast .dot{width:9px;height:9px;border-radius:50%;background:var(--good);}
+
+  .footer-note{text-align:center;color:var(--faint);font-size:12px;margin-top:30px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 1. HEADER -->
+  <header class="top">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#1A0E07" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h2M19 12h2M6.5 9.5v5M17.5 9.5v5M6.5 12h11"/>
+      </svg>
+    </div>
+    <div class="brand">
+      <h1>Ibrahim Workout Tracker</h1>
+      <div class="tag">Train · Log · Progress</div>
+    </div>
+    <button class="btn small ghost" id="exportBtn" title="Download your data">Export</button>
+    <button class="btn small ghost" id="importBtn" title="Load data from a file">Import</button>
+    <input type="file" id="importFile" accept="application/json" class="hidden" />
+  </header>
+
+  <!-- 2. ADD WORKOUT -->
+  <section class="section">
+    <div class="section-head">
+      <span class="eyebrow">Step 01</span>
+      <h2>Add Workout</h2>
+      <span class="sub">Paste your lifts — one exercise per block</span>
+    </div>
+    <div class="panel">
+      <div class="input-grid">
+        <div>
+          <textarea id="raw" spellcheck="false" placeholder="Bench Press&#10;30 15&#10;30 15&#10;70 12&#10;80 10&#10;80 8&#10;&#10;Side Lateral Raises&#10;10 15&#10;12 12&#10;12 10"></textarea>
+          <div class="row-btns" style="margin-top:12px;">
+            <button class="btn primary" id="logBtn">Log Workout</button>
+            <button class="btn" id="clearBtn">Clear</button>
+          </div>
+        </div>
+        <div class="side">
+          <div class="field">
+            <label for="week">Week number</label>
+            <input type="number" id="week" min="1" value="1" />
+          </div>
+          <div class="field">
+            <label for="date">Date</label>
+            <input type="date" id="date" />
+          </div>
+          <div class="hint">
+            <b>Format</b> — write the exercise name, then one line per set as <b>weight&nbsp;reps</b>:<br/>
+            Bench Press<br/>80&nbsp;10<br/>80&nbsp;8<br/><br/>
+            Stack several exercises in one go. Tip: <b>Ctrl/⌘ + Enter</b> logs instantly.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EMPTY STATE -->
+  <section class="section" id="emptyState">
+    <div class="panel empty">
+      <h2>No lifts logged yet</h2>
+      <p>Paste a workout above to build your first session — or drop in a sample week to see the dashboard, charts and muscle heatmap in action.</p>
+      <button class="btn primary" id="seedBtn" style="max-width:240px;margin:0 auto;">Load Example Data</button>
+    </div>
+  </section>
+
+  <!-- DASHBOARD (hidden until data exists) -->
+  <div id="dashboard" class="hidden">
+
+    <!-- week toolbar -->
+    <div class="panel toolbar section">
+      <label for="weekSel" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;">Viewing</label>
+      <select id="weekSel"></select>
+      <span id="weekDate" class="sub" style="color:var(--muted);font-size:13px;"></span>
+      <span class="spacer"></span>
+      <button class="btn small ghost" id="delWeek">Delete week</button>
+      <button class="btn small ghost" id="clearAll">Clear all</button>
+    </div>
+
+    <!-- 4. WEEKLY SUMMARY CARDS -->
+    <section class="section">
+      <div class="section-head"><span class="eyebrow">Step 02</span><h2>Weekly Summary</h2><span class="sub" id="summarySub"></span></div>
+      <div class="grid stats" id="statCards"></div>
+    </section>
+
+    <!-- 3. PARSED TABLE -->
+    <section class="section">
+      <div class="section-head"><span class="eyebrow">Session</span><h2>Exercise Breakdown</h2><span class="sub">Totals, best set, est. 1RM &amp; weekly change</span></div>
+      <div class="panel"><div class="table-scroll"><table id="exTable"></table></div></div>
+    </section>
+
+    <!-- 7 + 6. BODY HEATMAP + MUSCLE BREAKDOWN -->
+    <section class="section grid split">
+      <div>
+        <div class="section-head"><span class="eyebrow">Heatmap</span><h2>Muscles Trained</h2></div>
+        <div class="panel body-wrap">
+          <div class="figs">
+            <div class="fig">
+              <svg id="figFront" viewBox="0 0 200 440" role="img" aria-label="Front body muscle heatmap"></svg>
+              <div class="cap">Front</div>
+            </div>
+            <div class="fig">
+              <svg id="figBack" viewBox="0 0 200 440" role="img" aria-label="Back body muscle heatmap"></svg>
+              <div class="cap">Back</div>
+            </div>
+          </div>
+          <div class="heat-legend"><span>Low</span><div class="heat-bar"></div><span>High</span></div>
+          <div class="mlist" id="mlist"></div>
+        </div>
+      </div>
+      <div>
+        <div class="section-head"><span class="eyebrow">Volume</span><h2>Muscle Group</h2></div>
+        <div class="panel breakdown" id="breakdown"></div>
+      </div>
+    </section>
+
+    <!-- 5. PROGRESS GRAPHS -->
+    <section class="section">
+      <div class="section-head"><span class="eyebrow">Step 03</span><h2>Progress Graphs</h2><span class="sub">Across every logged week</span></div>
+      <div class="grid charts">
+        <div class="panel chart-card"><h3>Exercise Volume Over Time</h3><div class="csub">Total kg lifted per exercise, by week</div><div class="chart-box"><canvas id="cVol"></canvas></div></div>
+        <div class="panel chart-card"><h3>Weekly Volume by Muscle</h3><div class="csub">Stacked group volume per week</div><div class="chart-box"><canvas id="cMuscle"></canvas></div></div>
+        <div class="panel chart-card"><h3>Reps Progression</h3><div class="csub">Total reps per exercise, by week</div><div class="chart-box"><canvas id="cReps"></canvas></div></div>
+        <div class="panel chart-card"><h3>Strength Progression</h3><div class="csub">Estimated 1RM per exercise, by week</div><div class="chart-box"><canvas id="cStr"></canvas></div></div>
+        <div class="panel chart-card"><h3>Muscle Distribution</h3><div class="csub">Share of total volume, all time</div><div class="chart-box pie"><canvas id="cPie"></canvas></div></div>
+      </div>
+    </section>
+
+    <!-- 8. INSIGHTS -->
+    <section class="section">
+      <div class="section-head"><span class="eyebrow">Step 04</span><h2>Coaching Notes</h2><span class="sub">Generated from your trend</span></div>
+      <div class="grid insights" id="insights"></div>
+    </section>
+
+  </div>
+
+  <div class="footer-note">Your data lives only in this browser (localStorage). Export regularly to keep a backup.</div>
+</div>
+
+<div id="toast"><span class="dot"></span><span id="toastMsg"></span></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
+const GROUPS = ["Chest","Shoulders","Arms","Back","Abs","Legs"];
+const GROUP_COLOR = {
+  Chest:"#FF6A2B", Shoulders:"#FFB02E", Arms:"#FF4D6D",
+  Back:"#4CC2FF", Abs:"#C084FC", Legs:"#34D399", Other:"#7A8898"
+};
+const LINE_PALETTE = ["#FF6A2B","#4CC2FF","#34D399","#C084FC","#FFD24A","#FF4D6D","#9AE6B4","#7DD3FC"];
+const SUGGEST = {
+  Chest:"Incline Dumbbell Press", Shoulders:"Lateral Raises",
+  Arms:"Cable Pushdowns & Curls", Back:"Lat Pulldown",
+  Abs:"Hanging Leg Raises", Legs:"Back Squats"
+};
+
+/* exercise -> muscle mapping (first match wins; order = specific first) */
+const RULES = [
+  {kw:["incline"], g:"Chest", l:"Upper Chest", s:["Shoulders","Arms"]},
+  {kw:["decline"], g:"Chest", l:"Lower Chest", s:["Arms"]},
+  {kw:["pec deck","pec dec","pec fly","cable fly","cable cross","crossover","cross over","chest fly","fly","flye","flies"], g:"Chest", l:"Chest (isolation)", s:[]},
+  {kw:["dip"], g:"Chest", l:"Lower Chest", s:["Arms"]},
+  {kw:["bench","chest press","push up","pushup","push-up","machine press"], g:"Chest", l:"Chest", s:["Arms","Shoulders"]},
+
+  {kw:["lateral raise","side lateral","side raise","lateral"], g:"Shoulders", l:"Side Delts", s:[]},
+  {kw:["rear delt","reverse fly","rear fly","face pull"], g:"Shoulders", l:"Rear Delts", s:["Back"]},
+  {kw:["front raise"], g:"Shoulders", l:"Front Delts", s:[]},
+  {kw:["shoulder press","overhead press","military","arnold","ohp","shoulder","delt"], g:"Shoulders", l:"Shoulders", s:["Arms"]},
+
+  {kw:["tricep","pushdown","push down","push-down","skull","kickback","close grip","close-grip","overhead extension"], g:"Arms", l:"Triceps", s:[]},
+  {kw:["bicep","preacher","concentration","hammer","curl"], g:"Arms", l:"Biceps", s:[]},
+  {kw:["forearm","wrist"], g:"Arms", l:"Forearms", s:[]},
+
+  {kw:["deadlift"], g:"Back", l:"Posterior Chain", s:["Legs"]},
+  {kw:["pull up","pull-up","pullup","chin up","chin-up","pulldown","pull down","lat "], g:"Back", l:"Lats", s:["Arms"]},
+  {kw:["shrug","trap"], g:"Back", l:"Traps", s:[]},
+  {kw:["back extension","hyperextension","good morning"], g:"Back", l:"Lower Back", s:["Legs"]},
+  {kw:["row","t-bar","t bar"], g:"Back", l:"Mid Back", s:["Arms"]},
+
+  {kw:["leg curl","hamstring","romanian","rdl"], g:"Legs", l:"Hamstrings", s:[]},
+  {kw:["leg extension"], g:"Legs", l:"Quads", s:[]},
+  {kw:["leg press","hack squat"], g:"Legs", l:"Quads", s:[]},
+  {kw:["squat"], g:"Legs", l:"Quads", s:["Back"]},
+  {kw:["lunge","split squat","bulgarian"], g:"Legs", l:"Quads & Glutes", s:[]},
+  {kw:["hip thrust","glute"], g:"Legs", l:"Glutes", s:[]},
+  {kw:["calf","calves"], g:"Legs", l:"Calves", s:[]},
+
+  {kw:["crunch","sit up","sit-up","situp","plank","leg raise","knee raise","russian twist","ab wheel","hanging","oblique","abs","abdominal"], g:"Abs", l:"Abs", s:[]},
+];
+
+function classify(name){
+  const n = " " + name.toLowerCase().trim() + " ";
+  for(const r of RULES){
+    if(r.kw.some(k => n.includes(k))) return {group:r.g, label:r.l, sec:r.s};
+  }
+  // gentle fallback
+  if(n.includes("press")) return {group:"Chest", label:"Chest", sec:["Arms","Shoulders"]};
+  return {group:"Other", label:"Other", sec:[]};
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+const KEY = "iwt_sessions_v1";
+let state = load();         // [{week, date, exercises:[{name, sets:[{w,r}]}]}]
+let selectedWeek = null;
+
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+/* ============================================================
+   PARSING
+   ============================================================ */
+function parseSetLine(line){
+  const nums = line.replace(/[xX*×]/g," ").match(/\d+(?:\.\d+)?/g);
+  if(!nums) return null;
+  if(nums.length === 1) return {w:0, r:Math.round(+nums[0])};      // bodyweight reps
+  return {w:+nums[0], r:Math.round(+nums[1])};
+}
+function parseInput(text){
+  const out = []; let cur = null;
+  for(const raw of text.split(/\r?\n/)){
+    const line = raw.trim();
+    if(!line) continue;
+    if(/^[\d.]/.test(line)){
+      const s = parseSetLine(line);
+      if(s && s.r > 0 && cur) cur.sets.push(s);
+    }else{
+      cur = {name: line.replace(/[:;•]+$/,"").trim(), sets:[]};
+      out.push(cur);
+    }
+  }
+  return out.filter(e => e.sets.length);
+}
+
+/* ============================================================
+   STATS
+   ============================================================ */
+const e1rm = s => s.w * (1 + s.r/30);                  // Epley
+function exStats(sets){
+  let vol=0, reps=0, best=sets[0], bestE=0;
+  for(const s of sets){
+    vol += s.w*s.r; reps += s.r;
+    const e = e1rm(s);
+    if(e > bestE){ bestE = e; best = s; }
+  }
+  return {count:sets.length, reps, vol, best, e1rm:bestE};
+}
+function sortedWeeks(){ return [...new Set(state.map(s=>s.week))].sort((a,b)=>a-b); }
+function weekSession(week){ return state.find(s=>s.week===week); }
+
+/* merged exercises for a week (combine sets if same exercise logged twice) */
+function weekExercises(week){
+  const sess = weekSession(week);
+  if(!sess) return [];
+  const map = new Map();
+  for(const ex of sess.exercises){
+    const key = ex.name.toLowerCase();
+    if(!map.has(key)) map.set(key, {name:ex.name, sets:[]});
+    map.get(key).sets.push(...ex.sets);
+  }
+  return [...map.values()].map(ex => ({...ex, ...classify(ex.name), stats:exStats(ex.sets)}));
+}
+
+/* group volume (primary attribution) for a week */
+function weekGroupVol(week){
+  const g = Object.fromEntries(GROUPS.map(x=>[x,0]));
+  for(const ex of weekExercises(week)){
+    if(g[ex.group] !== undefined) g[ex.group] += ex.stats.vol;
+  }
+  return g;
+}
+
+/* ============================================================
+   MUTATIONS
+   ============================================================ */
+function addWorkout(week, date, exercises){
+  let sess = weekSession(week);
+  if(!sess){ sess = {week, date, exercises:[]}; state.push(sess); }
+  else if(date) sess.date = date;
+  for(const ex of exercises){
+    const existing = sess.exercises.find(e => e.name.toLowerCase() === ex.name.toLowerCase());
+    if(existing) existing.sets.push(...ex.sets);
+    else sess.exercises.push(ex);
+  }
+  state.sort((a,b)=>a.week-b.week);
+  save();
+}
+
+/* ============================================================
+   FORMAT HELPERS
+   ============================================================ */
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const fmt1 = n => (Math.round(n*10)/10).toLocaleString("en-US",{minimumFractionDigits:1});
+function deltaHTML(cur, prev, unit, decimals){
+  if(prev === null || prev === undefined || prev === 0) return `<span class="d flat">— first week</span>`;
+  const diff = cur - prev;
+  const pct = (diff/prev)*100;
+  const cls = diff > 0.0001 ? "up" : diff < -0.0001 ? "down" : "flat";
+  const arrow = diff > 0.0001 ? "▲" : diff < -0.0001 ? "▼" : "■";
+  const val = decimals ? fmt1(Math.abs(diff)) : fmt(Math.abs(diff));
+  return `<span class="d ${cls}">${arrow} ${val}${unit||""} (${pct>0?"+":""}${pct.toFixed(0)}%)</span>`;
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function render(){
+  const weeks = sortedWeeks();
+  const hasData = weeks.length > 0;
+  document.getElementById("emptyState").classList.toggle("hidden", hasData);
+  document.getElementById("dashboard").classList.toggle("hidden", !hasData);
+  document.getElementById("week").value = (weeks.length ? Math.max(...weeks)+1 : 1);
+  if(!hasData) return;
+
+  if(selectedWeek === null || !weeks.includes(selectedWeek)) selectedWeek = weeks[weeks.length-1];
+
+  renderWeekSelector(weeks);
+  renderSummary(weeks);
+  renderTable();
+  renderHeatmap();
+  renderBreakdown();
+  renderInsights(weeks);
+  renderCharts(weeks);
+}
+
+function renderWeekSelector(weeks){
+  const sel = document.getElementById("weekSel");
+  sel.innerHTML = weeks.map(w=>`<option value="${w}" ${w===selectedWeek?"selected":""}>Week ${w}</option>`).join("");
+  const sess = weekSession(selectedWeek);
+  document.getElementById("weekDate").textContent = sess && sess.date ? "· " + new Date(sess.date+"T00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "";
+}
+
+function renderSummary(weeks){
+  const idx = weeks.indexOf(selectedWeek);
+  const prevWeek = idx > 0 ? weeks[idx-1] : null;
+  const cur = aggWeek(selectedWeek);
+  const prev = prevWeek !== null ? aggWeek(prevWeek) : null;
+  document.getElementById("summarySub").textContent = `Week ${selectedWeek}` + (prevWeek!==null?` vs Week ${prevWeek}`:"");
+
+  const cards = [
+    {k:"Total Volume", v:fmt(cur.vol), u:"kg", d:deltaHTML(cur.vol, prev?prev.vol:null, "kg")},
+    {k:"Total Sets", v:fmt(cur.sets), u:"", d:deltaHTML(cur.sets, prev?prev.sets:null, "")},
+    {k:"Total Reps", v:fmt(cur.reps), u:"", d:deltaHTML(cur.reps, prev?prev.reps:null, "")},
+    {k:"Exercises", v:fmt(cur.exCount), u:"", d:deltaHTML(cur.exCount, prev?prev.exCount:null, "")},
+    {k:"Best Est. 1RM", v:fmt1(cur.bestE), u:"kg", d:`<span class="d flat">${cur.bestEx||""}</span>`},
+  ];
+  document.getElementById("statCards").innerHTML = cards.map(c=>`
+    <div class="panel stat">
+      <div class="k">${c.k}</div>
+      <div class="v">${c.v}<small>${c.u}</small></div>
+      ${c.d}
+    </div>`).join("");
+}
+
+function aggWeek(week){
+  const exs = weekExercises(week);
+  let vol=0,sets=0,reps=0,bestE=0,bestEx="";
+  for(const ex of exs){
+    vol+=ex.stats.vol; sets+=ex.stats.count; reps+=ex.stats.reps;
+    if(ex.stats.e1rm > bestE){ bestE = ex.stats.e1rm; bestEx = ex.name; }
+  }
+  return {vol,sets,reps,exCount:exs.length,bestE,bestEx};
+}
+
+function renderTable(){
+  const weeks = sortedWeeks();
+  const idx = weeks.indexOf(selectedWeek);
+  const prevWeek = idx > 0 ? weeks[idx-1] : null;
+  const prevExs = prevWeek!==null ? weekExercises(prevWeek) : [];
+  const prevVol = name => { const p = prevExs.find(e=>e.name.toLowerCase()===name.toLowerCase()); return p?p.stats.vol:null; };
+
+  const exs = weekExercises(selectedWeek);
+  let html = `<thead><tr>
+    <th>Exercise</th><th>Sets</th><th>Reps</th><th>Volume</th><th>Best Set</th><th>Est. 1RM</th><th>vs Last Week</th>
+  </tr></thead><tbody>`;
+  for(const ex of exs){
+    const col = GROUP_COLOR[ex.group] || GROUP_COLOR.Other;
+    const secTags = ex.sec.length ? ex.sec.map(s=>`<span class="tag">${s}</span>`).join("") : "";
+    html += `<tr>
+      <td>
+        <div class="ex-name">${escapeHTML(ex.name)}</div>
+        <div class="tags">
+          <span class="tag pill" style="color:${col};border-color:${col}55;"><span class="muscle-dot" style="background:${col}"></span>${ex.label}</span>
+          ${secTags}
+        </div>
+      </td>
+      <td>${ex.stats.count}</td>
+      <td>${fmt(ex.stats.reps)}</td>
+      <td><b>${fmt(ex.stats.vol)}</b> <span style="color:var(--faint)">kg</span></td>
+      <td>${ex.stats.best.w}kg × ${ex.stats.best.r}</td>
+      <td>${fmt1(ex.stats.e1rm)} <span style="color:var(--faint)">kg</span></td>
+      <td>${deltaHTML(ex.stats.vol, prevVol(ex.name), "kg")}</td>
+    </tr>`;
+  }
+  html += `</tbody>`;
+  document.getElementById("exTable").innerHTML = html;
+}
+
+/* -------- body heatmap -------- */
+function heatColor(t){
+  // thermal ramp: steel -> ember -> deep orange -> ignition -> hot amber
+  const stops = [
+    [0.00, [30,41,55]],
+    [0.14, [91,36,16]],
+    [0.42, [180,68,26]],
+    [0.72, [255,106,43]],
+    [1.00, [255,210,74]],
+  ];
+  t = Math.max(0, Math.min(1, t));
+  for(let i=1;i<stops.length;i++){
+    if(t <= stops[i][0]){
+      const [t0,c0]=stops[i-1], [t1,c1]=stops[i];
+      const f=(t-t0)/(t1-t0);
+      const c=c0.map((v,j)=>Math.round(v+(c1[j]-v)*f));
+      return `rgb(${c[0]},${c[1]},${c[2]})`;
+    }
+  }
+  return "rgb(255,210,74)";
+}
+function renderHeatmap(){
+  document.getElementById("figFront").innerHTML = FRONT_SVG;
+  document.getElementById("figBack").innerHTML = BACK_SVG;
+  const gv = weekGroupVol(selectedWeek);
+  const max = Math.max(1, ...Object.values(gv));
+  document.querySelectorAll(".muscle").forEach(el=>{
+    const grp = el.dataset.group;
+    const t = (gv[grp]||0)/max;
+    el.style.fill = heatColor(t);
+    el.style.filter = t > 0.08 ? `drop-shadow(0 0 ${Math.round(2+t*9)}px ${heatColor(Math.min(1,t+.15))})` : "none";
+    el.querySelector("title") || el.appendChild(document.createElementNS("http://www.w3.org/2000/svg","title"));
+    el.querySelector("title").textContent = `${grp}: ${fmt(gv[grp]||0)} kg`;
+  });
+  document.getElementById("mlist").innerHTML = GROUPS.map(g=>`
+    <div class="mrow">
+      <span class="muscle-dot" style="background:${heatColor((gv[g]||0)/max)};box-shadow:0 0 6px ${heatColor((gv[g]||0)/max)}"></span>
+      <span class="nm">${g}</span><span class="vl">${fmt(gv[g]||0)} kg</span>
+    </div>`).join("");
+}
+
+/* -------- breakdown bars -------- */
+function renderBreakdown(){
+  const gv = weekGroupVol(selectedWeek);
+  const max = Math.max(1, ...Object.values(gv));
+  const total = Object.values(gv).reduce((a,b)=>a+b,0) || 1;
+  document.getElementById("breakdown").innerHTML = GROUPS.map(g=>{
+    const v = gv[g]||0, pct = (v/max)*100, share=((v/total)*100).toFixed(0);
+    return `<div class="bar-row">
+      <span class="lbl">${g}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${GROUP_COLOR[g]}AA,${GROUP_COLOR[g]})"></div></div>
+      <span class="amt">${fmt(v)}<span style="color:var(--faint)"> · ${share}%</span></span>
+    </div>`;
+  }).join("");
+}
+
+/* -------- insights -------- */
+function renderInsights(weeks){
+  const notes = [];
+  const last = weeks[weeks.length-1];
+  const prev = weeks.length>1 ? weeks[weeks.length-2] : null;
+  const gvLast = weekGroupVol(last);
+  const totalByGroup = Object.fromEntries(GROUPS.map(g=>[g,0]));
+  for(const w of weeks){ const gv=weekGroupVol(w); for(const g of GROUPS) totalByGroup[g]+=gv[g]; }
+
+  // most improved muscle + exercise + volume trend (need 2 weeks)
+  if(prev !== null){
+    const gvPrev = weekGroupVol(prev);
+    let bestG=null, bestGpct=-1e9;
+    for(const g of GROUPS){ if(gvPrev[g]>0 && gvLast[g]>0){ const p=(gvLast[g]-gvPrev[g])/gvPrev[g]*100; if(p>bestGpct){bestGpct=p;bestG=g;} } }
+    if(bestG && bestGpct>0) notes.push({t:"good",i:"💪",ttl:"Top Muscle Gain",tx:`<b>${bestG}</b> volume climbed <b>+${bestGpct.toFixed(0)}%</b> vs last week. Keep that momentum.`});
+
+    const exP = weekExercises(prev), exL = weekExercises(last);
+    let bestEx=null, bestExpct=-1e9;
+    for(const e of exL){ const p=exP.find(x=>x.name.toLowerCase()===e.name.toLowerCase()); if(p&&p.stats.vol>0){ const pc=(e.stats.vol-p.stats.vol)/p.stats.vol*100; if(pc>bestExpct){bestExpct=pc;bestEx=e.name;} } }
+    if(bestEx && bestExpct>0) notes.push({t:"good",i:"🏆",ttl:"Best Exercise",tx:`<b>${escapeHTML(bestEx)}</b> is your biggest jump at <b>+${bestExpct.toFixed(0)}%</b> volume. New territory.`});
+
+    const totLast=Object.values(gvLast).reduce((a,b)=>a+b,0);
+    const totPrev=Object.values(gvPrev).reduce((a,b)=>a+b,0);
+    if(totPrev>0 && totLast < totPrev*0.97){
+      notes.push({t:"bad",i:"⚠️",ttl:"Volume Dropped",tx:`Total volume fell <b>${((totPrev-totLast)/totPrev*100).toFixed(0)}%</b> from Week ${prev} to Week ${last}. A deload is fine — but if it wasn't planned, add a set or two.`});
+    }
+  }else{
+    notes.push({t:"info",i:"📈",ttl:"Log Another Week",tx:"Add a second week to unlock week-over-week comparisons, gains and warnings."});
+  }
+
+  // undertrained + suggestion
+  const trained = GROUPS.filter(g=>totalByGroup[g]>0);
+  const least = GROUPS.slice().sort((a,b)=>totalByGroup[a]-totalByGroup[b])[0];
+  if(trained.length){
+    notes.push({t:"warn",i:"🎯",ttl:"Undertrained",tx:`<b>${least}</b> has the least total volume so far. Balance it out — try <b>${SUGGEST[least]}</b> next session.`});
+  }
+
+  // plateau detection: same top-set weight & reps for 3+ consecutive logged weeks
+  const exNames = new Set();
+  state.forEach(s=>s.exercises.forEach(e=>exNames.add(e.name.toLowerCase())));
+  for(const key of exNames){
+    const series=[];
+    for(const w of weeks){
+      const ex = weekExercises(w).find(e=>e.name.toLowerCase()===key);
+      if(ex) series.push({w, top:ex.stats.best});
+    }
+    if(series.length>=3){
+      const tail=series.slice(-3);
+      const same = tail.every(x=>x.top.w===tail[0].top.w && x.top.r===tail[0].top.r);
+      if(same && tail[0].top.w>0){
+        const nm = weekExercises(tail[0].w).find(e=>e.name.toLowerCase()===key).name;
+        notes.push({t:"warn",i:"🔁",ttl:"Plateau Warning",tx:`<b>${escapeHTML(nm)}</b> has sat at <b>${tail[0].top.w}kg × ${tail[0].top.r}</b> for 3 weeks. Bump the weight ~2.5kg or chase an extra rep.`});
+        break; // one plateau note is enough
+      }
+    }
+  }
+
+  if(!notes.length) notes.push({t:"info",i:"✅",ttl:"All Clear",tx:"Solid, balanced week. Keep logging to surface trends."});
+
+  document.getElementById("insights").innerHTML = notes.map(n=>`
+    <div class="panel note ${n.t}">
+      <div class="ic">${n.i}</div>
+      <div><div class="ttl">${n.ttl}</div><div class="tx">${n.tx}</div></div>
+    </div>`).join("");
+}
+
+/* -------- charts -------- */
+const CH = {};
+function topExercises(n){
+  const tot = {};
+  for(const w of sortedWeeks())
+    for(const ex of weekExercises(w)) tot[ex.name]=(tot[ex.name]||0)+ex.stats.vol;
+  return Object.entries(tot).sort((a,b)=>b[1]-a[1]).slice(0,n).map(e=>e[0]);
+}
+function exMetricByWeek(name, metric){
+  return sortedWeeks().map(w=>{
+    const ex = weekExercises(w).find(e=>e.name.toLowerCase()===name.toLowerCase());
+    if(!ex) return null;
+    if(metric==="vol") return Math.round(ex.stats.vol);
+    if(metric==="reps") return ex.stats.reps;
+    if(metric==="e1rm") return Math.round(ex.stats.e1rm*10)/10;
+  });
+}
+function makeChart(id, cfg){
+  if(typeof Chart === "undefined"){
+    const cv=document.getElementById(id);
+    if(cv) cv.parentElement.innerHTML='<div style="color:var(--muted);font-size:13px;text-align:center;padding-top:90px">Charts need an internet connection to load.</div>';
+    return;
+  }
+  if(CH[id]) CH[id].destroy();
+  CH[id] = new Chart(document.getElementById(id), cfg);
+}
+function renderCharts(weeks){
+  const labels = weeks.map(w=>"W"+w);
+  const top = topExercises(6);
+  const grid = "#22303D", tick="#8A97A6";
+  const baseScales = {
+    x:{grid:{color:grid},ticks:{color:tick}},
+    y:{grid:{color:grid},ticks:{color:tick},beginAtZero:true}
+  };
+  const legend = {labels:{color:"#C7D0DB",boxWidth:12,boxHeight:12,font:{size:11},usePointStyle:true}};
+
+  makeChart("cVol",{type:"line",data:{labels,datasets:top.map((n,i)=>({
+    label:n,data:exMetricByWeek(n,"vol"),borderColor:LINE_PALETTE[i%LINE_PALETTE.length],
+    backgroundColor:LINE_PALETTE[i%LINE_PALETTE.length]+"22",tension:.3,spanGaps:true,
+    pointRadius:3,pointBackgroundColor:LINE_PALETTE[i%LINE_PALETTE.length],borderWidth:2,fill:false}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:baseScales}});
+
+  makeChart("cMuscle",{type:"bar",data:{labels,datasets:GROUPS.map(g=>({
+    label:g,data:weeks.map(w=>Math.round(weekGroupVol(w)[g])),backgroundColor:GROUP_COLOR[g],
+    borderRadius:4,stack:"v"}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},
+    scales:{x:{...baseScales.x,stacked:true},y:{...baseScales.y,stacked:true}}}});
+
+  makeChart("cReps",{type:"line",data:{labels,datasets:top.map((n,i)=>({
+    label:n,data:exMetricByWeek(n,"reps"),borderColor:LINE_PALETTE[i%LINE_PALETTE.length],
+    tension:.3,spanGaps:true,pointRadius:3,borderWidth:2,fill:false}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:baseScales}});
+
+  makeChart("cStr",{type:"line",data:{labels,datasets:top.map((n,i)=>({
+    label:n,data:exMetricByWeek(n,"e1rm"),borderColor:LINE_PALETTE[i%LINE_PALETTE.length],
+    tension:.3,spanGaps:true,pointRadius:3,borderWidth:2,fill:false}))},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend},scales:baseScales}});
+
+  const tot = Object.fromEntries(GROUPS.map(g=>[g,0]));
+  for(const w of weeks){ const gv=weekGroupVol(w); for(const g of GROUPS) tot[g]+=gv[g]; }
+  const pieG = GROUPS.filter(g=>tot[g]>0);
+  makeChart("cPie",{type:"doughnut",data:{labels:pieG,datasets:[{
+    data:pieG.map(g=>Math.round(tot[g])),backgroundColor:pieG.map(g=>GROUP_COLOR[g]),
+    borderColor:"#0E141B",borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:"58%",
+    plugins:{legend:{position:"right",labels:legend.labels}}}});
+}
+
+/* ============================================================
+   SVG FIGURES (geometric, segmented body — recoloured by JS)
+   ============================================================ */
+const FRONT_SVG = `
+  <circle class="bodybase" cx="100" cy="32" r="19"/>
+  <rect class="bodybase" x="90" y="48" width="20" height="14" rx="6"/>
+  <g data-group="Shoulders"><ellipse class="muscle" data-group="Shoulders" cx="60" cy="82" rx="18" ry="15"/><ellipse class="muscle" data-group="Shoulders" cx="140" cy="82" rx="18" ry="15"/></g>
+  <path class="muscle" data-group="Chest" d="M98 70 Q72 70 70 92 Q70 113 98 113 Z"/>
+  <path class="muscle" data-group="Chest" d="M102 70 Q128 70 130 92 Q130 113 102 113 Z"/>
+  <ellipse class="muscle" data-group="Arms" cx="46" cy="120" rx="12" ry="30"/>
+  <ellipse class="muscle" data-group="Arms" cx="154" cy="120" rx="12" ry="30"/>
+  <ellipse class="muscle" data-group="Arms" cx="40" cy="172" rx="10" ry="28"/>
+  <ellipse class="muscle" data-group="Arms" cx="160" cy="172" rx="10" ry="28"/>
+  <rect class="muscle" data-group="Abs" x="84" y="116" width="32" height="82" rx="11"/>
+  <path class="bodybase" d="M78 198 L122 198 L116 224 L84 224 Z"/>
+  <path class="muscle" data-group="Legs" d="M84 222 Q70 222 72 300 Q74 340 92 340 Q98 300 96 240 Z"/>
+  <path class="muscle" data-group="Legs" d="M116 222 Q130 222 128 300 Q126 340 108 340 Q102 300 104 240 Z"/>
+  <ellipse class="muscle" data-group="Legs" cx="84" cy="386" rx="12" ry="40"/>
+  <ellipse class="muscle" data-group="Legs" cx="116" cy="386" rx="12" ry="40"/>
+  <ellipse class="bodybase" cx="82" cy="430" rx="12" ry="8"/>
+  <ellipse class="bodybase" cx="118" cy="430" rx="12" ry="8"/>`;
+const BACK_SVG = `
+  <circle class="bodybase" cx="100" cy="32" r="19"/>
+  <rect class="bodybase" x="90" y="48" width="20" height="14" rx="6"/>
+  <g data-group="Shoulders"><ellipse class="muscle" data-group="Shoulders" cx="60" cy="82" rx="18" ry="15"/><ellipse class="muscle" data-group="Shoulders" cx="140" cy="82" rx="18" ry="15"/></g>
+  <path class="muscle" data-group="Back" d="M78 70 Q100 62 122 70 L120 120 Q100 134 80 120 Z"/>
+  <path class="muscle" data-group="Back" d="M82 122 Q100 134 118 122 L112 188 Q100 198 88 188 Z"/>
+  <ellipse class="muscle" data-group="Arms" cx="46" cy="120" rx="12" ry="30"/>
+  <ellipse class="muscle" data-group="Arms" cx="154" cy="120" rx="12" ry="30"/>
+  <ellipse class="muscle" data-group="Arms" cx="40" cy="172" rx="10" ry="28"/>
+  <ellipse class="muscle" data-group="Arms" cx="160" cy="172" rx="10" ry="28"/>
+  <path class="bodybase" d="M80 190 L120 190 L122 210 L78 210 Z"/>
+  <ellipse class="muscle" data-group="Legs" cx="86" cy="214" rx="15" ry="14"/>
+  <ellipse class="muscle" data-group="Legs" cx="114" cy="214" rx="15" ry="14"/>
+  <path class="muscle" data-group="Legs" d="M84 226 Q70 226 72 300 Q74 340 92 340 Q98 300 96 244 Z"/>
+  <path class="muscle" data-group="Legs" d="M116 226 Q130 226 128 300 Q126 340 108 340 Q102 300 104 244 Z"/>
+  <ellipse class="muscle" data-group="Legs" cx="84" cy="386" rx="12" ry="40"/>
+  <ellipse class="muscle" data-group="Legs" cx="116" cy="386" rx="12" ry="40"/>
+  <ellipse class="bodybase" cx="82" cy="430" rx="12" ry="8"/>
+  <ellipse class="bodybase" cx="118" cy="430" rx="12" ry="8"/>`;
+
+/* ============================================================
+   UTIL + EVENTS
+   ============================================================ */
+function escapeHTML(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function toast(msg){
+  const t=document.getElementById("toast");
+  document.getElementById("toastMsg").textContent=msg;
+  t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600);
+}
+
+function doLog(){
+  const raw = document.getElementById("raw").value;
+  const parsed = parseInput(raw);
+  if(!parsed.length){ toast("Nothing to log — add an exercise and its sets."); return; }
+  const week = Math.max(1, parseInt(document.getElementById("week").value)||1);
+  const date = document.getElementById("date").value;
+  addWorkout(week, date, parsed);
+  selectedWeek = week;
+  const setCount = parsed.reduce((a,e)=>a+e.sets.length,0);
+  document.getElementById("raw").value = "";
+  render();
+  toast(`Week ${week} logged · ${parsed.length} exercise${parsed.length>1?"s":""}, ${setCount} sets`);
+  document.getElementById("dashboard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+document.getElementById("logBtn").addEventListener("click", doLog);
+document.getElementById("clearBtn").addEventListener("click", ()=>document.getElementById("raw").value="");
+document.getElementById("raw").addEventListener("keydown", e=>{ if((e.metaKey||e.ctrlKey)&&e.key==="Enter") doLog(); });
+document.getElementById("weekSel").addEventListener("change", e=>{ selectedWeek=+e.target.value; render(); });
+
+document.getElementById("delWeek").addEventListener("click", ()=>{
+  if(!confirm(`Delete all data for Week ${selectedWeek}?`)) return;
+  state = state.filter(s=>s.week!==selectedWeek);
+  selectedWeek=null; save(); render(); toast("Week deleted");
+});
+document.getElementById("clearAll").addEventListener("click", ()=>{
+  if(!confirm("Delete ALL workout data? This cannot be undone.")) return;
+  state=[]; selectedWeek=null; save(); render(); toast("All data cleared");
+});
+
+/* export / import */
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  if(!state.length){ toast("Nothing to export yet."); return; }
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`workout-data-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href); toast("Data exported");
+});
+document.getElementById("importBtn").addEventListener("click", ()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const data=JSON.parse(r.result);
+    if(!Array.isArray(data)) throw 0;
+    if(!confirm("Replace current data with the imported file?")) return;
+    state=data; selectedWeek=null; save(); render(); toast("Data imported");
+  }catch(err){ toast("Couldn't read that file."); } };
+  r.readAsText(f); e.target.value="";
+});
+
+/* example data */
+document.getElementById("seedBtn").addEventListener("click", ()=>{
+  state = [
+    {week:1, date:isoOffset(-14), exercises:[
+      {name:"Bench Press", sets:[{w:30,r:15},{w:30,r:15},{w:70,r:12},{w:80,r:10},{w:80,r:8}]},
+      {name:"Incline Bench Press", sets:[{w:50,r:12},{w:60,r:10},{w:60,r:9}]},
+      {name:"Side Lateral Raises", sets:[{w:10,r:15},{w:12,r:12},{w:12,r:11}]},
+      {name:"Lat Pulldown", sets:[{w:55,r:12},{w:65,r:10},{w:65,r:9}]},
+      {name:"Squats", sets:[{w:80,r:10},{w:100,r:8},{w:100,r:7}]},
+      {name:"Crunches", sets:[{w:0,r:20},{w:0,r:18},{w:0,r:15}]},
+    ]},
+    {week:2, date:isoOffset(-7), exercises:[
+      {name:"Bench Press", sets:[{w:40,r:15},{w:75,r:12},{w:82.5,r:10},{w:82.5,r:9}]},
+      {name:"Incline Bench Press", sets:[{w:55,r:12},{w:62.5,r:10},{w:62.5,r:10}]},
+      {name:"Side Lateral Raises", sets:[{w:12,r:15},{w:14,r:12},{w:14,r:11}]},
+      {name:"Lat Pulldown", sets:[{w:60,r:12},{w:70,r:10},{w:70,r:10}]},
+      {name:"Squats", sets:[{w:90,r:10},{w:110,r:8},{w:110,r:8}]},
+      {name:"Triceps Pushdown", sets:[{w:25,r:15},{w:30,r:12},{w:30,r:11}]},
+      {name:"Crunches", sets:[{w:0,r:22},{w:0,r:20},{w:0,r:18}]},
+    ]},
+  ];
+  selectedWeek=2; save(); render(); toast("Example data loaded — explore, then clear anytime");
+});
+function isoOffset(days){ const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
+
+/* chart.js dark defaults + reduced motion */
+if(typeof Chart !== "undefined"){
+  Chart.defaults.color = "#8A97A6";
+  Chart.defaults.font.family = "'Inter',sans-serif";
+  Chart.defaults.font.size = 11;
+  if(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+    Chart.defaults.animation = false;
+  }else{
+    Chart.defaults.animation = {duration:650, easing:"easeOutQuart"};
+  }
+}
+
+/* init */
+document.getElementById("date").value = new Date().toISOString().slice(0,10);
+render();
+</script>
+</body>
+</html>
