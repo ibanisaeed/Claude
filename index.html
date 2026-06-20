@@ -299,7 +299,7 @@
     <div class="panel empty">
       <h2>No lifts logged yet</h2>
       <p>Paste a workout above to build your first session — or drop in a sample week to see the dashboard, charts and muscle heatmap in action.</p>
-      <button class="btn primary" id="seedBtn" style="max-width:240px;margin:0 auto;">Load Example Data</button>
+      <button class="btn primary" id="seedBtn" style="max-width:260px;margin:0 auto;">Load Sample Workout</button>
     </div>
   </section>
 
@@ -933,30 +933,26 @@ document.getElementById("importFile").addEventListener("change", e=>{
   r.readAsText(f); e.target.value="";
 });
 
-/* example data */
+/* preloaded workout — your push day (Week 1) */
+const SEED = [
+  {week:1, date:"2026-06-20", exercises:[
+    {name:"Bench Press", sets:[{w:30,r:15},{w:30,r:15},{w:70,r:12},{w:80,r:10},{w:80,r:8}]},
+    {name:"Incline Bench Press (Chest Smith Machine)", sets:[{w:30,r:15},{w:60,r:12},{w:60,r:8},{w:60,r:9},{w:60,r:8}]},
+    {name:"Super Inclined Fly Machine", sets:[{w:20,r:10},{w:30,r:10},{w:30,r:8}]},
+    {name:"Super Horizontal Fly Machine", sets:[{w:30,r:12},{w:34,r:9},{w:34,r:8}]},
+    {name:"Declined Chest Press", sets:[{w:40,r:16},{w:70,r:10},{w:70,r:10},{w:70,r:8}]},
+    {name:"High Cable Flys", sets:[{w:40,r:16},{w:50,r:13},{w:55,r:11},{w:55,r:11}]},
+    {name:"Pec Dec Chest Fly", sets:[{w:20,r:14},{w:30,r:11},{w:35,r:10},{w:35,r:10}]},
+    {name:"Standing Dumbbell Side Laterals", sets:[{w:6,r:12},{w:8,r:12},{w:10,r:11},{w:10,r:11}]},
+    {name:"Dumbbells Shoulder Press", sets:[{w:20,r:10},{w:24,r:8},{w:24,r:6}]},
+    {name:"Single Arm Triceps Push Down", sets:[{w:10,r:10},{w:10,r:12},{w:20,r:10}]},
+    {name:"Crunches", sets:[{w:40,r:10},{w:40,r:10},{w:40,r:10},{w:40,r:10}]},
+  ]},
+];
 document.getElementById("seedBtn").addEventListener("click", ()=>{
-  state = [
-    {week:1, date:isoOffset(-14), exercises:[
-      {name:"Bench Press", sets:[{w:30,r:15},{w:30,r:15},{w:70,r:12},{w:80,r:10},{w:80,r:8}]},
-      {name:"Incline Bench Press", sets:[{w:50,r:12},{w:60,r:10},{w:60,r:9}]},
-      {name:"Side Lateral Raises", sets:[{w:10,r:15},{w:12,r:12},{w:12,r:11}]},
-      {name:"Lat Pulldown", sets:[{w:55,r:12},{w:65,r:10},{w:65,r:9}]},
-      {name:"Squats", sets:[{w:80,r:10},{w:100,r:8},{w:100,r:7}]},
-      {name:"Crunches", sets:[{w:0,r:20},{w:0,r:18},{w:0,r:15}]},
-    ]},
-    {week:2, date:isoOffset(-7), exercises:[
-      {name:"Bench Press", sets:[{w:40,r:15},{w:75,r:12},{w:82.5,r:10},{w:82.5,r:9}]},
-      {name:"Incline Bench Press", sets:[{w:55,r:12},{w:62.5,r:10},{w:62.5,r:10}]},
-      {name:"Side Lateral Raises", sets:[{w:12,r:15},{w:14,r:12},{w:14,r:11}]},
-      {name:"Lat Pulldown", sets:[{w:60,r:12},{w:70,r:10},{w:70,r:10}]},
-      {name:"Squats", sets:[{w:90,r:10},{w:110,r:8},{w:110,r:8}]},
-      {name:"Triceps Pushdown", sets:[{w:25,r:15},{w:30,r:12},{w:30,r:11}]},
-      {name:"Crunches", sets:[{w:0,r:22},{w:0,r:20},{w:0,r:18}]},
-    ]},
-  ];
-  selectedWeek=2; save(); render(); toast("Example data loaded — explore, then clear anytime");
+  state = JSON.parse(JSON.stringify(SEED));
+  selectedWeek=1; save(); render(); toast("Workout loaded — clear anytime to start your own");
 });
-function isoOffset(days){ const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().slice(0,10); }
 
 /* chart.js dark defaults + reduced motion */
 if(typeof Chart !== "undefined"){
@@ -972,6 +968,10 @@ if(typeof Chart !== "undefined"){
 
 /* init */
 document.getElementById("date").value = new Date().toISOString().slice(0,10);
+if(localStorage.getItem(KEY) === null){          // first ever open → preload your workout
+  state = JSON.parse(JSON.stringify(SEED));
+  selectedWeek = 1; save();
+}
 render();
 </script>
 </body>
